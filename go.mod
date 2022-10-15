@@ -1,4 +1,4 @@
-module rabbitmq_wrapper
+module github.com/naf-m62/rabbitmq_wrapper
 
 go 1.18
 
