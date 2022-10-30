@@ -184,7 +184,7 @@ func (r *rmq) Consume(item *ConsumeItem) (err error) {
 					r.l.Debug("Consume finished " + queue + strconv.Itoa(i))
 					return
 				case msg := <-d:
-					if err = r.handleWithMiddlewares(msg.Body, item.Handler); err != nil {
+					if err = r.handleWithMiddlewares(&msg, item.Handler); err != nil {
 						_ = msg.Reject(true)
 						continue
 					}
@@ -232,14 +232,12 @@ func (r *rmq) Publish(token, exchange, routingKey string, msg []byte) error {
 	select {
 	case <-time.After(publishTimeout):
 		return errors.New("publish event timeout")
-	case errChan <- r.handleWithMiddlewares(msg, func(_ context.Context, _ []byte) error {
-		return r.chanPublish.Publish(exchange, routingKey, false, false, amqp.Publishing{
-			Headers:      nil,
-			ContentType:  "application/json",
-			Body:         msg,
-			DeliveryMode: amqp.Persistent,
-			MessageId:    token,
-		})
+	case errChan <- r.chanPublish.Publish(exchange, routingKey, false, false, amqp.Publishing{
+		Headers:      nil,
+		ContentType:  "application/json",
+		Body:         msg,
+		DeliveryMode: amqp.Persistent,
+		MessageId:    token,
 	}):
 		return errors.Wrap(<-errChan, "can't publish event")
 	}
@@ -305,14 +303,14 @@ func (r *rmq) restartConsumer(item *ConsumeItem) {
 	}
 }
 
-func (r *rmq) handleWithMiddlewares(msg []byte, handler func(ctx context.Context, msg []byte) error) error {
+func (r *rmq) handleWithMiddlewares(d *amqp.Delivery, handler func(ctx context.Context, msg []byte) error) error {
 	m := &Middlewares{
 		midList:  r.middlewares,
 		h:        handler,
 		current:  0,
 		len:      len(r.middlewares),
 		CtxEvent: context.Background(),
-		Event:    msg,
+		Delivery: d,
 	}
 
 	return m.Next()

@@ -2,6 +2,8 @@ package wrapper
 
 import (
 	"context"
+
+	"github.com/streadway/amqp"
 )
 
 type Middlewares struct {
@@ -10,7 +12,7 @@ type Middlewares struct {
 	current  int
 	len      int
 	CtxEvent context.Context
-	Event    []byte
+	Delivery *amqp.Delivery
 }
 
 func (m *Middlewares) Next() error {
@@ -18,5 +20,5 @@ func (m *Middlewares) Next() error {
 		m.current++
 		return m.midList[m.current-1](m)
 	}
-	return m.h(m.CtxEvent, m.Event)
+	return m.h(m.CtxEvent, m.Delivery.Body)
 }

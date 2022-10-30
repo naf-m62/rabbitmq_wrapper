@@ -54,6 +54,9 @@ func getCommonSettings() (*Config, *zap.Logger, []func(*Middlewares) error) {
 			}
 		}()
 		return m.Next()
+	}, func(m *Middlewares) error {
+		m.CtxEvent = context.WithValue(m.CtxEvent, "token", m.Delivery.MessageId)
+		return m.Next()
 	})
 	return rmqConfig, l, middlewareList
 }
@@ -69,7 +72,12 @@ func Example() {
 			RoutingKey:  "test",
 			Handler: func(ctx context.Context, msg []byte) error {
 				time.Sleep(10 * time.Millisecond)
-				return rmqClient.Publish("token", "test", "push.test", msg)
+				tokenAny := ctx.Value("token")
+				var token = "default_token"
+				if tmp, ok := tokenAny.(string); ok {
+					token = tmp
+				}
+				return rmqClient.Publish(token, "test", "push.test", msg)
 			},
 		})
 	}()
