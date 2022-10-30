@@ -1,6 +1,7 @@
 package wrapper
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -66,7 +67,7 @@ func Example() {
 			ServiceName: "test",
 			Exchange:    "test",
 			RoutingKey:  "test",
-			Handler: func(msg []byte) error {
+			Handler: func(ctx context.Context, msg []byte) error {
 				time.Sleep(10 * time.Millisecond)
 				return rmqClient.Publish("token", "test", "push.test", msg)
 			},
