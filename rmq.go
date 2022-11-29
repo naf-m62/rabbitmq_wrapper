@@ -25,7 +25,7 @@ type (
 
 		conn *amqp.Connection
 
-		exchangeMap map[string]struct{}
+		exchangeMap sync.Map
 
 		wgPublish sync.WaitGroup
 
@@ -60,7 +60,7 @@ func New(config *Config, l *zap.Logger, name string, middlewares []func(*Middlew
 		l:           l.With(zap.String("name", name)),
 		consumerMap: map[string]*ConsumeItem{},
 		isClosed:    true,
-		exchangeMap: map[string]struct{}{},
+		exchangeMap: sync.Map{},
 		middlewares: middlewares,
 	}
 
@@ -213,7 +213,7 @@ func (r *rmq) Publish(token, exchange, routingKey string, msg []byte) error {
 		return errors.New("connection is closed")
 	}
 
-	if _, ok := r.exchangeMap[exchange]; !ok {
+	if _, ok := r.exchangeMap.Load(exchange); !ok {
 		if err := r.chanPublish.ExchangeDeclare(
 			exchange,
 			"direct",
@@ -225,7 +225,7 @@ func (r *rmq) Publish(token, exchange, routingKey string, msg []byte) error {
 		); err != nil {
 			return errors.Wrap(err, "can't exchange declare")
 		}
-		r.exchangeMap[exchange] = struct{}{}
+		r.exchangeMap.Store(exchange, nil)
 	}
 
 	errChan := make(chan error, 1)
@@ -282,6 +282,8 @@ func (r *rmq) reconnect() {
 		}
 		break
 	}
+
+	r.exchangeMap = sync.Map{}
 
 	r.startConsumers()
 	r.l.Info("rmq was reconnected")
